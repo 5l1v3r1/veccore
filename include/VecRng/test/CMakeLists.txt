@@ -31,6 +31,7 @@ include(MacroUtilities)
 # Configuration options
 
 option(RNGTEST_CUDA "Enable compilation for CUDA." OFF)
+option(RNGTEST_ROOT "Include ROOT." OFF)
 
 set(RNGTEST_ARCH native sse2 ssse3 sse4.1 sse4.2 aes avx avx2 mic mic_avx512)
 
@@ -228,6 +229,9 @@ if (GNU)
   endif()
 endif()
 
+if (RNGTEST_ROOT)
+  set(RNGTEST_DEFINITIONS "${RNGTEST_DEFINITIONS} -DRNGTEST_ROOT")
+endif()
 ################################################################################
 
 # see if we have CCACHE ( to avoid recompilation on branch switches )
@@ -251,6 +255,25 @@ message(STATUS "Compiling with C++ flags: ${CMAKE_CXX_FLAGS}")
 if (RNGTEST_CUDA)
   message(STATUS "Compiling with NVCC flags: ${CUDA_NVCC_FLAGS}")
 endif()
+
+if (RNGTEST_ROOT)
+
+# You need to tell CMake where to find the ROOT installation. This can be done in a number of ways:
+#   - ROOT built with classic configure/make use the provided $ROOTSYS/etc/cmake/FindROOT.cmake
+#   - ROOT built with CMake. Add in CMAKE_PREFIX_PATH the installation prefix for ROOT
+  list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
+
+#---Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
+  find_package(ROOT REQUIRED)
+
+  set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib)
+#---setup ROOT include + lib dirs
+  include_directories(AFTER SYSTEM ${ROOT_INCLUDE_DIRS})
+  link_directories(${ROOT_LIBRARY_DIR})
+  set(RNGTEST_LIBRARIES_EXTERNAL ${RNGTEST_LIBRARIES_EXTERNAL} ${ROOT_LIBRARIES})
+  set(RNGTEST_EXTERNAL_INCLUDES "${RNGTEST_EXTERNAL_INCLUDES};${ROOT_INCLUDE_DIRS}")
+
+endif(RNGTEST_ROOT)
 
 ################################################################################
 
@@ -347,6 +370,13 @@ set(TEST_EXECUTABLES
   ${PROJECT_SOURCE_DIR}/src/RngBenchmark.cc
   ${PROJECT_SOURCE_DIR}/src/PdfBenchmark.cc
 )
+
+# Add executables not testing CUDA
+if (NOT RNGTEST_CUDA)
+  set(TEST_EXECUTABLES
+    ${PROJECT_SOURCE_DIR}/src/RngExample1.cc
+  )
+endif()
 
 # Build executables
 set(RNGTEST_EXECUTABLES)
